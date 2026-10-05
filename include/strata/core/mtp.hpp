@@ -19,10 +19,10 @@
 //   * all 512 routed experts live in VRAM (708 MB) and run through the grouped hit kernels.
 #pragma once
 
+#include <sycl/sycl.hpp>
+#include <dpct/dpct.hpp>
 #include "strata/core/layer.hpp"
 #include "strata/core/session.hpp"
-
-#include <cuda_runtime.h>
 
 #include <cstdint>
 #include <string>
@@ -60,6 +60,15 @@ public:
     /// the token at position cell+1).  Runs in batches of up to max_t rows.
     bool prefill(const float* R_rows, const int32_t* next_tokens, int64_t n, int64_t cell0, std::string& err);
 
+    /// A host callback runs immediately after each draft token is copied out of the mapped staging buffer.
+    /// It must not block on the GPU; the PLE prefetch arm uses it to submit the token's row read while later
+    /// draft steps continue.
+    using DraftTokenCallback = bool (*)(void* user, int32_t token, std::string& err);
+    void set_draft_token_callback(DraftTokenCallback cb, void* user) {
+        draft_callback_ = cb;
+        draft_callback_user_ = user;
+    }
+
     /// One round: catch-up over T cells from `p` (rows = the window's final residuals, `tokens` = the window's
     /// argmaxes: row t pairs R_{p+t} with the token at p+t+1), then the draft chain from row `a` (the last
     /// accepted row) for T-1 drafts at cells p+a+1 ...  `drafts` gets T-1 tokens.
@@ -74,11 +83,12 @@ public:
     int64_t rounds = 0;
 
 private:
-    bool record_forward(int T, int step_row0, cudaStream_t cs, std::string& err);
+    bool record_forward(int T, int step_row0, dpct::queue_ptr cs,
+                        std::string &err);
     bool capture_prefill(int T, std::string& err);
-    bool capture_round(int T, std::string& err);
+    bool capture_round(int T, std::string& err, bool rin_ready = false);
     bool capture_step(int j, std::string& err);
-    cudaGraphExec_t step_exec_[9] = {};
+    dpct::experimental::command_graph_exec_ptr step_exec_[9] = {};
     const float* f32(const char* name) const;
     const uint16_t* bf16(const char* name) const;
     const void* q8(const char* name) const;
@@ -90,11 +100,14 @@ private:
     const float* window_R_ = nullptr;
     int max_t_ = 0;
     int max_drafts_ = 1 << 30;
+    DraftTokenCallback draft_callback_ = nullptr;
+    void* draft_callback_user_ = nullptr;
     int64_t n_vocab_ = 0;
     uint64_t vram_ = 0;
-    cudaStream_t cs_ = nullptr;
-    cudaGraphExec_t prefill_exec_[9] = {};
-    cudaGraphExec_t round_exec_[9] = {};
+    dpct::queue_ptr cs_ = &dpct::get_in_order_queue();
+    dpct::experimental::command_graph_exec_ptr prefill_exec_[9] = {};
+    dpct::experimental::command_graph_exec_ptr round_exec_[9] = {};
+    dpct::experimental::command_graph_exec_ptr round_ext_exec_[9] = {};
 
     struct Tensor { std::string name, kind; int64_t rows = 0, cols = 0; uint64_t off = 0, bytes = 0; };
     std::vector<Tensor> tensors_;

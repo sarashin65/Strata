@@ -1,4 +1,4 @@
-﻿// include/strata/core/weights.hpp - the dense weights, loaded into VRAM in ENGINE form.
+// include/strata/core/weights.hpp - the dense weights, loaded into VRAM in ENGINE form.
 //
 // The pack is the ARTIFACT's business; this is the ENGINE's.  The differences are deliberate, and they run in
 // BOTH directions:
@@ -88,6 +88,8 @@ struct WeightRef {
     // Optional native GGUF projection, owned by NativeDense. All references in
     // one table share its scratch and must execute on one ordered session stream.
     const void* native_data = nullptr;
+    // Optional Q6_K plane-major startup copy, owned by NativeDense.
+    const void* native_reordered_data = nullptr;
     void* native_q8_1 = nullptr;
     int native_type = -1;
     /// Plan v0.3 P1: false when the loader SKIPPED this tensor's canonical bytes because another form serves it
@@ -133,3 +135,4 @@ private:
 };
 
 }  // namespace strata::core
+

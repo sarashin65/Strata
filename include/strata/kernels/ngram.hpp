@@ -22,6 +22,7 @@
 // All of those are asserted observable in `ple_parity.cpp` rather than trusted.
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
 #include <string>
 
@@ -128,9 +129,19 @@ public:
     /// needs the rows. `gather` is `issue` followed by `collect`. In Mmap mode `issue` only prefetches.
     bool issue(const uint32_t* rows16);
     bool collect(float* out2560, std::string& err);
+    /// Queue one or more token rows for the verify path.  Multiple calls may remain in flight; each call
+    /// keeps its ticket and raw buffer until `collect_batch`.  The rows are token-major (16 rows per token).
+    bool issue_batch(const uint32_t* rows, size_t n_tokens);
+    /// True only when the queued batches are exactly this ordered row sequence.
+    bool batch_matches(const uint32_t* rows, size_t n_tokens) const;
+    /// Collect and dequantize every queued batch into `out`, in issue order.
+    bool collect_batch(float* out, std::string& err);
+    /// Retire queued batches without producing output; used by the verifier safety valve on a mismatch.
+    bool discard_batch(std::string& err);
+
     /// Plan v0.3 P5: the rows of `n_tokens` tokens (16 each, `rows` token-major) into `out` (2560 floats per token),
     /// as ONE reader request - page dedupe and sort across the whole batch, the reader's full queue depth.  Not
-    /// while a single-token `issue` is pending.  The mapped mode gathers row by row.
+    /// while a single-token `issue` or a prefetch batch is pending.  The mapped mode gathers row by row.
     bool gather_batch(const uint32_t* rows, size_t n_tokens, float* out, std::string& err);
 
     /// Fault injection (Direct mode): every row read completes no earlier than `us` after issue.
@@ -178,6 +189,8 @@ private:
 // one binary - so the two arms are alternated inside one session. Off is `--no-ple-prefetch`.
 void ple_prefetch_enable(bool on);
 bool ple_prefetch_enabled();
+/// The MTP-overlap arm.  It is OFF unless STRATA_PLE_PREFETCH is set to a non-zero value at process start.
+bool ple_batch_prefetch_enabled();
 
 // ---- NOTE ON `madvise(MADV_RANDOM)` ------------------------------------------------------------------
 // P2.S4 asks for `madvise(MADV_RANDOM)` on the mapping, and on Linux that is exactly right: a token gathers

@@ -8,10 +8,12 @@
 // caching; `build_rope_table` fills `max_pos` positions of `n_rot/2` pairs each.
 #pragma once
 
+#include <sycl/sycl.hpp>
+#include <dpct/dpct.hpp>
 #include <cstdint>
 
-#if defined(__CUDACC__)
-#define STRATA_ROPE_HD __host__ __device__
+#if defined(SYCL_LANGUAGE_VERSION)
+#define STRATA_ROPE_HD 
 #else
 #define STRATA_ROPE_HD
 #endif

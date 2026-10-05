@@ -35,6 +35,9 @@ struct NativeSharedWeights {
     int gate_type = -1, up_type = -1, down_type = -1;
     const void* gate_data = nullptr;
     const void* up_data = nullptr;
+    const void* gate_reordered = nullptr;
+    const void* up_reordered = nullptr;
+    const void* down_reordered = nullptr;
     const void* down_data = nullptr;
     void* q8_1 = nullptr;
 };

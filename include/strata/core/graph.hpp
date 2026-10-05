@@ -31,14 +31,14 @@
 // into the driver on this machine, and a layer with 8 submissions is ~0.1 ms of round trip.
 #pragma once
 
+#include <sycl/sycl.hpp>
+#include <dpct/dpct.hpp>
 #include <cstdint>
 #include <cstring>
 #include <functional>
 #include <map>
 #include <string>
 #include <vector>
-
-#include <cuda_runtime.h>
 
 namespace strata::core {
 
@@ -78,9 +78,9 @@ public:
 
 private:
     void reset();
-    cudaGraph_t graph_ = nullptr;
-    cudaGraphExec_t exec_ = nullptr;
-    cudaEvent_t done_ = nullptr;
+    dpct::experimental::command_graph_ptr graph_ = nullptr;
+    dpct::experimental::command_graph_exec_ptr exec_ = nullptr;
+    dpct::event_ptr done_ = nullptr;
     size_t nodes_ = 0;
 };
 

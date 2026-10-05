@@ -20,6 +20,12 @@ void dequant_bf16(int ggml_type, const void* blocks, int64_t row0, int64_t rows,
 /// The same into FP16 bits (the prompt path's quantized-weight GEMMs: Q2_0 values are exact in FP16).
 void dequant_f16(int ggml_type, const void* blocks, int64_t row0, int64_t rows, int64_t cols, uint16_t* out,
                  void* stream);
+/// Q6_K plane-major startup copy into FP16, with the same arithmetic as dequant_f16.
+void dequant_f16_q6_reordered(const void* blocks, int64_t row0, int64_t rows, int64_t total_rows, int64_t cols,
+                              uint16_t* out, void* stream);
+/// Field-reordered Q4_K, Q5_K or IQ4_XS blocks into FP16.
+void dequant_f16_reordered(int ggml_type, const void* blocks, int64_t row0, int64_t rows, int64_t cols, uint16_t* out,
+                          void* stream);
 
 /// The same into FP32 (tests and small tensors).
 void dequant_f32(int ggml_type, const void* blocks, int64_t row0, int64_t rows, int64_t cols, float* out, void* stream);

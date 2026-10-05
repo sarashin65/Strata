@@ -21,14 +21,15 @@
 // selection, native indexer) and a profile-filled VRAM expert tier with its residency table on the device.
 #pragma once
 
+#include <sycl/sycl.hpp>
+#include <dpct/dpct.hpp>
 #include <cstdio>
 
 #include "strata/core/expert_source.hpp"
 #include "strata/core/layer.hpp"
 #include "strata/core/session.hpp"
 #include "strata/kernels/sampler.hpp"
-
-#include <cuda_runtime.h>
+#include "strata/kernels/verify_kernels.hpp"
 
 #include <cstdint>
 #include <string>
@@ -57,7 +58,7 @@ public:
     /// The watchdog's view of the window in flight (issue #31): the layer, the GPU's sequence, the flags.
     void diag(std::FILE* f) const;
 
-    /// `max_t` <= kVerifyMaxT.  `head` may be null (the canonical head is then run per token).
+    /// `max_t` <= kVerifyMaxT, or <= kVerifyMaxWindow when wide lookup is enabled.  `head` may be null (the canonical head is then run per token).
     bool init(const WeightTable& wt, const ModelGeometry& g, SessionState& ss, const VerifyHits& hits,
               const NativeHead* head, int max_t, std::string& err);
 
@@ -98,6 +99,9 @@ public:
     /// arena directly, 2 = a copy kernel stages it inside the graph (no API calls on the pool's thread; best when
     /// the CPU is RAM-bound, Q2_0).  Set before the first `run`.
     void set_pcie_mode(int mode) { sink_.pcie_mode = mode; }
+    /// Whether the dispatch has a nonempty PCIe share. STRATA_PCIE_SKIP is
+    /// honored only when this is false; set before the first `run`.
+    void set_pcie_stage(bool on) { pcie_stage_ = on; }
 
     double ms_wait = 0, ms_pool = 0, ms_host = 0, ms_commit = 0;
     int64_t windows = 0;
@@ -112,8 +116,11 @@ private:
     }();   ///< greedy by default; per-request via set_sampling
     const int32_t* hist_d_ = nullptr;   ///< penalty-history row (set_history); null = no penalties apply
     int hist_len_ = 0;
+    std::string timing_pending_line_;
     bool capture_commit(std::string& err);
-    bool record_window(int T, cudaStream_t cs, std::string& err);
+    bool record_window(int T, dpct::queue_ptr cs, std::string &err);
+    /// Release every device-side wait before an error path returns to teardown.
+    void abort_waiters();
 
     const WeightTable* wt_ = nullptr;
     const ModelGeometry* g_ = nullptr;
@@ -123,11 +130,11 @@ private:
     int max_t_ = 0;
     int last_t_ = 0;
     int64_t last_pos0_ = 0;
-    int32_t last_tokens_[8] = {};
+    int32_t last_tokens_[strata::kernels::kVerifyMaxWindow] = {};
     int64_t n_vocab_ = 0;
-    cudaStream_t cs_ = nullptr;
-    cudaGraphExec_t exec_[9] = {};
-    cudaGraphExec_t commit_exec_ = nullptr;
+    dpct::queue_ptr cs_ = &dpct::get_in_order_queue();
+    dpct::experimental::command_graph_exec_ptr exec_[strata::kernels::kVerifyMaxWindow + 1] = {};
+    dpct::experimental::command_graph_exec_ptr commit_exec_ = nullptr;
 
     // mapped staging (host pointer, device alias)
     int32_t* h_tok_ = nullptr;   int32_t* m_tok_ = nullptr;     // T
@@ -143,7 +150,10 @@ private:
     uint32_t* h_flag_ = nullptr; uint32_t* m_flag_ = nullptr;
     uint32_t* h_flagA_ = nullptr; uint32_t* m_flagA_ = nullptr;  // the GPU plan is in place
     uint32_t* h_flagB_ = nullptr; uint32_t* m_flagB_ = nullptr;  // the PCIe share's DMA copies have landed
-    cudaStream_t copy_ = nullptr;                                 // the copy engine's stream (DMA of missed experts)
+    dpct::queue_ptr copy_ =
+        &dpct::get_in_order_queue(); // the copy engine's stream (DMA of missed
+                                     // experts)
+    bool aborted_ = false;
     struct FlagSet { uint32_t* flag; uint32_t value; };
     FlagSet flag_sets_[2 * 64 * 2] = {};                          // host-function arguments, one per (layer, group)
     static void fetch_dma(void* ctx, const uint8_t* const* src, int n, size_t bytes);
@@ -155,7 +165,9 @@ private:
     static void publish_plan(void* ctx);
     void set_plan_slot(int grp);
     bool split_ = false;   // opt-in (--spec-split): exact but slower, see the overlap study
-    int groups_[9] = {};
+    bool pcie_stage_ = true;   // old callers retain the ordinary PCIe path until they set this explicitly
+    bool pcie_skip_reported_ = false;
+    int groups_[strata::kernels::kVerifyMaxWindow + 1] = {};
     float* h_ymiss_ = nullptr;   float* m_ymiss_ = nullptr;     // T * k * n_embd
 
     // device

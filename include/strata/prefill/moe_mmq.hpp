@@ -45,7 +45,7 @@ struct Product {
 /// The launch context (llama.cpp's MMQ keeps a small scratch pool for its stream-k fixup).  One per prompt path.
 class Context {
 public:
-    Context();
+    explicit Context(void* stream);
     ~Context();
     Context(const Context&) = delete;
     Context& operator=(const Context&) = delete;

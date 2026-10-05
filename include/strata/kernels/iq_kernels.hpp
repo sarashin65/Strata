@@ -50,6 +50,7 @@ size_t native_expert_scratch_bytes(int64_t cap_entries, int64_t n_ff);
 /// Grouped experts in the native format: group g's blob at device address grp_ptr[g]; its entries
 /// [grp_start[g], grp_start[g+1]) read token ent_tok[e]'s q8_1 activation (n_embd/32 blocks per token in x_q8_1)
 /// and write row ent_dst[e] of `out` (n_embd floats).  Counts are read on the device.
+void iq_once_set_window(int n);
 void native_expert_grouped(const NativeExpertLayout& L, const unsigned long long* grp_ptr, const int32_t* grp_start,
                            const int32_t* n_groups, const int32_t* ent_dst, const int32_t* ent_tok, int64_t cap_groups,
                            int64_t cap_entries, const void* x_q8_1, void* scratch, float* out, void* stream);

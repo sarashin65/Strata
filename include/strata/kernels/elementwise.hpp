@@ -102,6 +102,11 @@ void doorbell_wait(const uint32_t* d_flag, const uint32_t* d_seq, void* stream);
 /// device memory with a kernel, so the handoff stays on the compute queue (a memcpy node is a copy-engine
 /// operation, which WDDM submits separately and which measured 67 flushes per token).
 void copy_from_mapped(float* dst, const float* src, int64_t n, void* stream);
+/// Copies each row from mapped `ymiss_mapped` only when it is absent from `dst[0..*count)`;
+/// rows present in the plan receive +0.0f instead.  The row scan is shared by each 256-thread
+/// work-group through one local word.
+void gather_miss_rows(float* parts, const float* ymiss_mapped, const int32_t* dst, const int32_t* count,
+                      int64_t rows, int64_t n_embd, void* stream);
 
 /// Plan v0.3 P3: the doorbell's payload and its ring in ONE kernel.  Copies `x` (n floats), `ids` and `weights`
 /// (k each) into the mapped host regions, fences, and increments the mapped sequence number - replacing three
@@ -112,5 +117,10 @@ void doorbell_publish(const float* x, const int32_t* ids, const float* weights, 
 /// Plan v0.3 P3: copy `n` int32 from mapped pinned host memory into device memory with a kernel (the QSA
 /// per-token step and positions), instead of a host-to-device memcpy node in the middle of a layer.
 void copy_i32_from_mapped(int32_t* dst, const int32_t* src, int64_t n, void* stream);
+/// Repack per-token positions from `src[t * src_rows + r]` into
+/// `dst[t * rows_per_tok + r]`. Used only by the opt-in batched QSA RoPE
+/// path, so the legacy position copy has no extra launch.
+void expand_pos(const int32_t* src, int64_t n_tok, int64_t src_rows, int64_t rows_per_tok, int32_t* dst,
+                void* stream);
 
 }  // namespace strata::kernels

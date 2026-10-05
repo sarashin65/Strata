@@ -14,13 +14,24 @@ namespace strata::prefill {
 // ---- hyper-connection (n_embd 2560, hc 4, hc_lr 320)
 /// xn[t, c*2560 + d] = R[t,c,d] * rsqrt(mean_d R[t,c,:]^2 + eps) * w_norm[c*2560 + d]; also its BF16 image.
 void gr_norm(const float* R, const float* w_norm, float eps, float* xn, uint16_t* xn16, int64_t T, void* stream);
+/// F-1: gr_norm without the FP32 normalized-row output; writes row scales and the same BF16 image, while gr_mix_r reads R.
+void gr_norm_rs(const float* R, const float* w_norm, float eps, float* rs, uint16_t* xn16, int64_t T, void* stream);
+
 /// lo16[t, k] = bf16(silu(lo[t, k] / hc))
 void gr_silu(const float* lo, uint16_t* lo16, int64_t T, void* stream);
 /// mixed[t, d] = mean_c xn[t, c, d] * sigmoid(gated[t, c, d]); FP32, BF16 and FP16 (either image may be null).
 void gr_mix(const float* xn, const float* gated, float* mixed, uint16_t* mixed16, int64_t T, void* stream,
             uint16_t* mixed_h = nullptr);
+/// F-1: gr_mix recomputing normalized rows from R, rs and w_norm in the same arithmetic order.
+void gr_mix_r(const float* R, const float* rs, const float* w_norm, const float* gated, float* mixed, uint16_t* mixed16,
+              int64_t T, void* stream, uint16_t* mixed_h = nullptr);
+
 /// R[t, c, d] += bo[t, d] * 2 sigmoid(inj[t, c] / hc)   (inj has row stride inj_ld)
 void gr_write(float* R, const float* bo, const float* inj, int64_t inj_ld, int64_t T, void* stream);
+/// F-2: gr_write fused with the next half's gr_norm_rs; uses the same 256-thread mapping and block reduction.
+void gr_write_norm_rs(float* R, const float* bo, const float* inj, int64_t inj_ld, const float* w_norm_next, float eps,
+                      float* rs, uint16_t* xn16, int64_t T, void* stream);
+
 /// R[t, c, :] = e[t, :] for all four streams (the embedding broadcast).
 void gr_broadcast(const float* e, float* R, int64_t T, void* stream);
 

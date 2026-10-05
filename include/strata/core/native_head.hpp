@@ -22,12 +22,15 @@ public:
     bool loaded() const { return weights_ != nullptr; }
     /// Plan v0.3 P6: the GGUF blocks, for the verify window's multi-column head.
     const void* weights() const { return weights_; }
+    const void* reordered_weights() const { return reordered_; }
+    bool reordered_active() const { return weights_ != nullptr && weights_ == reordered_; }
     int type() const { return type_; }
     /// Bytes of one vocabulary row.
     size_t row_bytes() const { return n_out_ > 0 ? (size_t) (bytes_ / (uint64_t) n_out_) : 0; }
 
 private:
     void* weights_ = nullptr;
+    void* reordered_ = nullptr;
     void* scratch_ = nullptr;
     uint64_t bytes_ = 0;
     int n_in_ = 0, n_out_ = 0;
@@ -63,3 +66,4 @@ void set_native_embed(const NativeEmbed* e);
 const NativeEmbed* native_embed();
 
 }  // namespace strata::core
+

@@ -14,6 +14,8 @@
 // change between requests.
 #pragma once
 
+#include <sycl/sycl.hpp>
+#include <dpct/dpct.hpp>
 #include <cstdint>
 
 namespace strata::kernels {
@@ -21,11 +23,16 @@ namespace strata::kernels {
 void mrope_table_set(const int32_t* device_table);
 const int32_t* mrope_table();
 
-#if defined(__CUDACC__)
+#if defined(SYCL_LANGUAGE_VERSION)
 /// ggml rope_multi, is_imrope, sections {11, 11, 10, 0}: sector = pair % 32; sector % 3 == 1 -> h (sector < 33),
 /// == 2 -> w (sector < 30), == 0 -> t (sector < 33).  For pairs 0..31 all three bounds hold, so it is pair % 3.
-__device__ __forceinline__ int mrope_pos(const int32_t* tab, int pos, int pair) {
-    return tab ? __ldg(tab + (size_t) pos * 3 + pair % 3) : pos;
+__dpct_inline__ int mrope_pos(const int32_t *tab, int pos, int pair) {
+    /*
+    DPCT1098:317: The '*' expression is used instead of the __ldg call. These
+    two expressions do not provide the exact same functionality. Check the
+    generated code for potential precision and/or performance issues.
+    */
+    return tab ? *(tab + (size_t)pos * 3 + pair % 3) : pos;
 }
 #endif
 

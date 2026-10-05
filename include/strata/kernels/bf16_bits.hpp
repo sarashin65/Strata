@@ -16,11 +16,13 @@
 // `gr.cu` carried a private copy of `f32_to_bf16_bits` until this header existed.  It now includes this.
 #pragma once
 
+#include <sycl/sycl.hpp>
+#include <dpct/dpct.hpp>
 #include <cstdint>
 #include <cstring>
 
-#if defined(__CUDACC__)
-#define STRATA_BF16_HD __host__ __device__
+#if defined(SYCL_LANGUAGE_VERSION)
+#define STRATA_BF16_HD 
 #else
 #define STRATA_BF16_HD
 #endif

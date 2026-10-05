@@ -21,7 +21,7 @@ namespace strata::spec {
 
 class DraftPolicy {
 public:
-    static constexpr int kMaxT = 8;
+    static constexpr int kMaxT = 16;
     static constexpr int kBuckets = 4;
 
     explicit DraftPolicy(int max_t, double margin = 0.03);
@@ -37,6 +37,8 @@ public:
 
     double lookup_rate(int match) const;   // current q for a match length
     double cost_ms(int t) const;           // measured or scaled round time of a window of t tokens
+    double cost_of(int t) const;          // measured or scaled round time of a window size
+    double cost_count(int t) const;       // number of observations for a window size
 
 private:
     static int bucket(int match);

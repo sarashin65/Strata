@@ -36,6 +36,7 @@ struct FusedGrArgs {
     float* rs = nullptr;               ///< workspace, hc floats
     float* inject_out = nullptr;       ///< hc floats (when w_inject)
     float* mixed = nullptr;            ///< n_embd
+    float* xn = nullptr;                ///< normalized activation scratch for STRATA_GR_SPLIT single-token path
 };
 
 bool fused_gr_supported(int64_t n_embd, int64_t hc, int64_t hc_lr);

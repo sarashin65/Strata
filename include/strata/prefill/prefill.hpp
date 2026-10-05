@@ -31,6 +31,9 @@ struct PrefillStats {
     int64_t experts_streamed = 0;   ///< expert blobs copied host -> device
     int64_t experts_dma = 0;        ///< ...of which straight from the pinned arena (no CPU copy)
     int64_t experts_resident = 0;   ///< expert-layer groups served from the VRAM tier
+    int64_t dequant_cache_hits = 0; ///< expert computes served by retained FP16 weights
+    int64_t dequant_cache_misses = 0; ///< expert computes that populated/replaced an FP16 entry
+    int32_t dequant_cache_slots = 0;
     double ms_ple = 0;
 };
 

@@ -109,4 +109,21 @@ std::size_t native_mmvq_weight_bytes(int ggml_type, int n_in, int n_out);
 void native_mmvq(int ggml_type, const void* weights, const void* x_q8_1, float* y,
                  int n_in, int n_out, int ncols, void* stream);
 
+// Generic reordered native GEMV helpers. Each type is opt-in through its own environment variable.
+bool native_reorder_enabled(int ggml_type) noexcept;
+bool native_reorder_shape(int ggml_type, int n_in, int n_out, int ncols) noexcept;
+std::size_t native_reordered_bytes(int ggml_type, int n_in, int n_out);
+void native_reorder_host(int ggml_type, const void* src, void* dst, int n_in, int n_out);
+// Q6_K reordered GEMV is opt-in through STRATA_Q6K_REORDER=1.  The original
+// GGUF blocks remain authoritative; the reordered pointer is an optional startup
+// copy. Unsupported types/shapes/column counts fall through to native_mmvq.
+bool native_q6_k_reorder_enabled() noexcept;
+bool native_q6_k_reorder_shape(int n_in, int n_out, int ncols) noexcept;
+std::size_t native_q6_k_reordered_bytes(int n_in, int n_out);
+void native_q6_k_reorder_host(const void* src, void* dst, int n_in, int n_out);
+void native_mmvq_with_reorder(int ggml_type, const void* weights, const void* reordered,
+                              const void* x_q8_1, float* y,
+                              int n_in, int n_out, int ncols, void* stream);
+
 } // namespace strata::kernels
+

@@ -45,4 +45,17 @@ void bf16_gemv_split(const uint16_t* x, const uint16_t* w, float* y, int64_t n_i
 void bf16_gemv_fp32_mmvf(const float* x, const uint16_t* w, float* y,
                          int64_t n_in, int64_t n_out, void* stream);
 
+/// Returns true only when STRATA_DEC_BATCH is exactly "1". The first enabled
+/// query reports the opt-in once on stderr; the default remains byte-for-byte
+/// on the legacy per-token path.
+bool strata_dec_batch_enabled();
+
+/// `bf16_gemv_fp32_mmvf` for 1..8 activation rows x[t * ldx], outputs
+/// y[t * ldy + j]. One launch reads each weight row once. For every active
+/// token, pair traversal, the two ordered FMAs, warp reduction and block
+/// reduction are identical to the single-row kernel.
+/// n_tok > 8 is rejected so callers can fall back to the single-row path.
+void bf16_gemv_fp32_mmvf_multi(const float* x, int64_t ldx, const uint16_t* w, float* y, int64_t ldy,
+                               int64_t n_in, int64_t n_out, int n_tok, void* stream);
+
 }  // namespace strata::kernels

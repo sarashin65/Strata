@@ -30,7 +30,9 @@ public:
 
 private:
     std::vector<void*> weights_;
+    std::vector<void*> reordered_weights_;
     void* scratch_ = nullptr;
     uint64_t bytes_ = 0;
 };
 } // namespace strata::core
+
