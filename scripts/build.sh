@@ -128,10 +128,12 @@ fail_stage() {
 # The exact repository and commit hash are unconfirmed in this publication.
 
 # setvars.sh is sourced before CMake so icpx, SYCL, and oneMKL are discoverable.
-set +e
+# oneAPI's vars.sh reads unset variables (OCL_ICD_FILENAMES), so nounset has to
+# be off while it is sourced; both options are restored right after.
+set +eu
 source "$ONEAPI_SET_VARS"
 setvars_status=$?
-set -e
+set -eu
 if ((setvars_status != 0)); then
     fail_stage setvars "$setvars_status"
 fi
