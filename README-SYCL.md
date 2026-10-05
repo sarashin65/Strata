@@ -207,7 +207,7 @@ the 31 `mtp.*` tensors out of the BF16 checkpoint
 (360 GB in 131 shards) with HTTP range requests; that checkpoint URL is the
 tool's own `REPO` constant, and `fetch` writes one raw file per tensor plus
 `mtp-manifest.json` (dtype, shape, source shard, byte range, sha256), so the
-origin of every tensor is recorded and checkable. It reads nothing but the
+origin of every tensor is recorded and checkable. It requests nothing but the
 ranges named in the shard headers and never runs a model. The tool exposes
 `inventory`/`fetch` and has no `--checkpoint` switch, so this wrapper does not
 accept or use that argument. On the development machine the fetch produced
