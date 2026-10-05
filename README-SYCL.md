@@ -6,10 +6,13 @@ CUDA-to-SYCL conversion followed by manual SYCL and oneAPI fixes. The commands
 below are written for a reader who changes only the paths at the top of the
 scripts.
 
-This distribution has not been built, and none of its scripts have been run.
-The numbers below are measurements from the development machine (Arc Pro B70);
-build, link, and runtime behavior in your environment, on other cards, and with
-other quantizations are unconfirmed.
+This tree was built on the publication machine (Arc Pro B70, oneAPI 2026.0) by
+cloning the branch over https and running `scripts/build.sh`: it finished with
+`build_ok=1` and `unresolved_symbols=0`. Nothing else has been exercised — the
+engine was not started from this clone, the data preparation was not re-run, and
+the numbers below are measurements from the development machine. Runtime
+behavior in your environment, on other cards, and with other quantizations are
+unconfirmed.
 
 ## 1. Public tree and checkout
 
@@ -141,19 +144,25 @@ else. Without those flags CMake picks the system `c++` and the first
 translation unit fails at once with
 `c++: error: unrecognized command-line option '-fsycl'`.
 
-The script is intended to source oneAPI, run CMake, build with four jobs by
-default, and run `ldd -r`. Its intended success markers are `build_ok=1` and
-`unresolved_symbols=0`; these statuses are unconfirmed until a reader builds
-the package. Configure, build, missing-backend, missing-executable, `ldd`, and
+The script sources oneAPI, runs CMake, builds with four jobs by default, and
+runs `ldd -r`. Its success markers are `build_ok=1` and
+`unresolved_symbols=0`; a full run on the publication machine (oneAPI 2026.0,
+8 jobs) reported `ldd_rc=0 unresolved_symbols=0` and `build_ok=1` with exit
+status 0. Configure, build, missing-backend, missing-executable, `ldd`, and
 unresolved-symbol failures have distinct numeric/status messages. The raw
 transcript is `build.raw.log` inside the build directory. A previous
 `strata-sycl` executable is backed up before the build and restored on a
-failure; no build was run while preparing this publication.
+failure. Environments other than the publication machine remain unverified.
 
 The public CMake file has an empty optional `STRATA_CUDA_INCLUDE_DIR` by
-default. Whether converted code genuinely needs CUDA headers is
-**unconfirmed**. oneMKL lookup prefers `$MKLROOT` and otherwise uses the
-conventional oneAPI location; the clean configure and link are **unconfirmed**.
+default; the script passes a CUDA include directory only when `--cuda-include`
+is given or the conventional CUDA location exists. The converted tree does not
+need CUDA headers (both headers it uses are shipped, see §2); a build that
+reaches `fatal error: 'cuda_fp16.h' file not found` is resolving
+`third_party/ggml/ggml-common.h` to the wrong copy. oneMKL lookup prefers
+`$MKLROOT` and otherwise uses the conventional oneAPI location; the clean
+configure and link succeeded on the publication machine (oneAPI 2026.0) and
+are unverified elsewhere.
 
 ## 6. Prepare pack and MTP
 
