@@ -8,13 +8,17 @@ ONEAPI_SET_VARS="${ONEAPI_SET_VARS:-/opt/intel/oneapi/setvars.sh}"
 BUILD_DIR="${BUILD_DIR:-${ROOT_DIR}/build}"
 GGML_DIR="${STRATA_GGML_DIR:-}"
 JOBS="${JOBS:-4}"
+CUDA_INCLUDE="${STRATA_CUDA_INCLUDE_DIR:-}"
 
 usage() {
     cat <<'EOF'
-Usage: scripts/build.sh --ggml-dir PATH [--build-dir PATH] [--jobs N]
+Usage: scripts/build.sh --ggml-dir PATH [--cuda-include PATH]
+                        [--build-dir PATH] [--jobs N]
 
 Prerequisite: source-compatible Intel oneAPI setvars.sh, icpx, CMake 3.24+,
-oneMKL, and a llama.cpp checkout containing ggml/src/ggml-sycl.
+oneMKL, and a llama.cpp checkout containing ggml/src/ggml-sycl. No CUDA
+toolkit is required; --cuda-include is optional and unused by the converted
+tree.
 EOF
 }
 
@@ -29,6 +33,9 @@ while (($#)); do
         --jobs)
             [[ $# -ge 2 ]] || { echo "error: --jobs needs a positive integer" >&2; exit 2; }
             JOBS=$2; shift 2 ;;
+        --cuda-include)
+            [[ $# -ge 2 ]] || { echo "error: --cuda-include needs a path" >&2; exit 2; }
+            CUDA_INCLUDE=$2; shift 2 ;;
         -h|--help)
             usage; exit 0 ;;
         *)
@@ -37,6 +44,23 @@ while (($#)); do
             exit 2 ;;
     esac
 done
+
+if [[ -z "$CUDA_INCLUDE" ]]; then
+    for candidate in /usr/local/cuda/include /opt/cuda/include /usr/include/cuda; do
+        if [[ -f "$candidate/cuda_fp16.h" ]]; then
+            CUDA_INCLUDE="$candidate"
+            break
+        fi
+    done
+fi
+# The converted tree needs no CUDA header: its third_party/ggml/ggml-common.h
+# uses sycl::half and does not include <cuda_fp16.h>. The option is only
+# forwarded when a directory is found or requested.
+CUDA_CMAKE_ARG=()
+if [[ -n "$CUDA_INCLUDE" ]]; then
+    CUDA_CMAKE_ARG=("-DSTRATA_CUDA_INCLUDE_DIR=$CUDA_INCLUDE")
+    echo "cuda_include=$CUDA_INCLUDE"
+fi
 
 if [[ -z "$GGML_DIR" ]]; then
     echo "error: ggml_dir_present=0; pass --ggml-dir PATH" >&2
@@ -112,11 +136,24 @@ if ((setvars_status != 0)); then
     fail_stage setvars "$setvars_status"
 fi
 
+if ! command -v icpx >/dev/null 2>&1; then
+    echo "error: icpx_present=0; oneAPI setvars.sh did not put icpx on PATH" >&2
+    exit 8
+fi
+
 # With the default checkout and build directory, the copy-paste commands are:
-#   cmake -S . -B build -DSTRATA_GGML_DIR=<reader-llama.cpp>
+#   cmake -S . -B build -DCMAKE_CXX_COMPILER=icpx -DCMAKE_C_COMPILER=icx \
+#       -DCMAKE_BUILD_TYPE=RelWithDebInfo -DSTRATA_CUDA_INCLUDE_DIR=<cuda-include> \
+#       -DSTRATA_GGML_DIR=<reader-llama.cpp>
 #   cmake --build build --parallel 4
+# The compiler flags are mandatory: without them CMake selects the system c++
+# and the first compile fails with `unrecognized command-line option '-fsycl'`.
 set +e
-cmake -S "$ROOT_DIR" -B "$BUILD_DIR" -DSTRATA_GGML_DIR="$GGML_DIR" 2>&1 | tee "$RAW_LOG"
+cmake -S "$ROOT_DIR" -B "$BUILD_DIR" \
+    -DCMAKE_CXX_COMPILER=icpx -DCMAKE_C_COMPILER=icx \
+    -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+    "${CUDA_CMAKE_ARG[@]}" \
+    -DSTRATA_GGML_DIR="$GGML_DIR" 2>&1 | tee "$RAW_LOG"
 cmake_statuses=("${PIPESTATUS[@]}")
 set -e
 cmake_rc=${cmake_statuses[0]}
@@ -124,6 +161,12 @@ tee_rc=${cmake_statuses[1]}
 if ((cmake_rc != 0 || tee_rc != 0)); then
     ((cmake_rc != 0)) && fail_stage cmake-configure "$cmake_rc"
     fail_stage cmake-log "$tee_rc"
+fi
+
+chosen_compiler=$(sed -n 's/^CMAKE_CXX_COMPILER:[^=]*=//p' "$BUILD_DIR/CMakeCache.txt" 2>/dev/null | head -1)
+if [[ "$chosen_compiler" != *icpx* ]]; then
+    echo "error: compiler_not_icpx=1; CMake selected '${chosen_compiler:-unknown}'" >&2
+    fail_stage compiler-not-icpx 9
 fi
 
 set +e

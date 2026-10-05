@@ -11,7 +11,7 @@
 
 #define GGML_COMMON_DECL_CPP
 #define GGML_COMMON_IMPL_CPP
-#include "ggml-common.h"
+#include "ggml-common-upstream.h"
 
 #include <immintrin.h>
 

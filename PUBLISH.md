@@ -8,24 +8,34 @@ unconfirmed** in this publication pass.
 
 Use fork `sarashin65/Strata` `main` at `236d5f2` (the Engine 0.1.17
 generation) as the base, then publish the converted `sycl-port` tree. The
-publication-set inventory is **249 files**: 197 source-tree files
-(`CMakeLists.txt`, `src/`, and `include/`), 45 DPCT headers, 4 scripts, and 3
+publication-set inventory is **251 files**: 199 source-tree files
+(`CMakeLists.txt`, `src/`, `include/`, and the two `third_party/ggml/` headers),
+45 DPCT headers, 4 scripts, and 3
 public documents. The count includes regular files under `dist/`; directories
 are not counted. Its required content is:
 
 - the manifest's 197-file `CMakeLists.txt` + `src/` + `include/` source tree;
+- `third_party/ggml/ggml-common.h`, the SYCLomatic-converted header that the
+  SYCL translation units include by that plain name (the bundled directory is
+  on the include path), plus `third_party/ggml/ggml-common-upstream.h`, the
+  unconverted upstream copy that the four conversion-host translation units
+  include by that name. Both replace the single upstream file at
+  `third_party/ggml/ggml-common.h`; the upstream `LICENSE` and `VERSION.txt`
+  stay. Using one copy for both roles does not build;
 - the bundled `tools/include/dpct/` runtime headers, with their original Intel
   notices intact;
 - `scripts/build.sh`, `scripts/run.sh`, `scripts/prepare-data.sh`, and
   `scripts/verify.sh`;
 - the public cookbook, `NOTICE.md`, and this procedure;
-- the upstream `LICENSE`, upstream `third_party/ggml/` files, and the upstream
-  data files that are already part of the base tree.
+- the upstream `LICENSE` and the upstream `third_party/ggml/{LICENSE,VERSION.txt}`
+  files, and the upstream data files that are already part of the base tree.
 
-The 197-file source manifest is 76 unchanged files, 34 replaced files, and 87
-added converted/header files. Reconcile the final path list and byte counts
-against `MANIFEST-1005.md` and `manifest-delta.tsv` before a real publication.
-Do not treat a copied workspace count as the final branch count.
+The published commit's diff against its base is the authoritative count: of the
+197 file positions, 78 are byte-identical to the base, 32 are modified, and 87
+are added converted/header files. An earlier size-only comparison of the working
+tree reported 76 and 34; the git-level diff is authoritative. Reconcile any
+later publication against `MANIFEST-1005.md` and `manifest-delta.tsv`, which are
+maintainer-side artifacts and are not part of the published set.
 
 The four source include edits are intentional and limited to these files:
 
@@ -38,6 +48,11 @@ The development llama.cpp `ggml-common.h` and upstream-main
 `third_party/ggml/ggml-common.h` have matching SHA-256 content, with observed
 prefix `0061131b…`; because `third_party/` remains the upstream tree, the
 relative include replacement is equivalent for the measured source.
+
+Two of those four files (`src/kernels/cpu/iq_avx2.cpp` and
+`src/kernels/cpu/iq_avx512.cpp`) end up byte-identical to the base file once the
+relative include is restored, so they do not appear in the published diff; the
+other two do.
 
 ## Delete these 87 upstream files
 

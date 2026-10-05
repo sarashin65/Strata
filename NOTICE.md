@@ -25,6 +25,23 @@ place and are separate from the Strata MIT notice. The headers identify:
 This notice records the attribution; it does not change the text embedded in
 the bundled headers.
 
+## ggml headers
+
+Two copies of the llama.cpp/ggml `ggml-common.h` are shipped, because the port
+uses both:
+
+- `third_party/ggml/ggml-common.h` is the SYCLomatic-converted copy (it uses
+  `sycl::half`/`sycl::half2` and `dpct::` types). The SYCL translation units
+  include it by that plain name.
+- `third_party/ggml/ggml-common-upstream.h` is the unconverted upstream copy,
+  used by the conversion-host translation units (`src/kernels/cpu/iq_avx2.cpp`,
+  `src/kernels/cpu/iq_avx512.cpp`, `src/prefill/ggml_cuda_host.dp.cpp`,
+  `src/prefill/moe_mmq.dp.cpp`).
+
+Both are MIT-licensed llama.cpp/ggml files; the upstream `LICENSE` and
+`VERSION.txt` are kept beside them. Substituting either copy for the other does
+not build.
+
 ## Other components
 
 The build uses llama.cpp/ggml, SYCLomatic, Intel oneAPI, and oneMKL. Their

@@ -52,6 +52,18 @@ There is no SYCL installer. Upstream `setup.py` and `setup.sh` are NVIDIA
 oriented and are not usable as SYCL installers. Install the compiler, runtime,
 oneMKL, and Python prerequisites by the reader's normal system method.
 
+No CUDA toolkit is required. The tree ships both ggml headers the port uses: the
+SYCLomatic-converted `third_party/ggml/ggml-common.h` (it uses `sycl::half` and
+`sycl::half2` and does not include `<cuda_fp16.h>`) for the SYCL translation
+units, and `third_party/ggml/ggml-common-upstream.h`, the unconverted copy, for
+the four conversion-host translation units. Substituting either copy for the
+other breaks the build (`fatal error: 'cuda_fp16.h' file not found`, or
+`type 'const ggml_half2' (aka 'const __half2') does not provide a subscript
+operator`, or `use of undeclared identifier 'dpct'`). If you deliberately want
+to supply a separate CUDA include directory, `scripts/build.sh --cuda-include
+DIR` forwards it as `-DSTRATA_CUDA_INCLUDE_DIR=DIR`; the measured build needs
+none.
+
 ## 3. Inputs and excluded artifacts
 
 The measured configuration uses the following reader-supplied materials. The
@@ -120,6 +132,14 @@ From the Strata checkout, the copy-paste build entry point is:
 ```sh
 scripts/build.sh --ggml-dir "$PWD/llama.cpp" --build-dir "$PWD/build" --jobs 4
 ```
+
+The oneAPI compilers must be selected explicitly. The script passes
+`-DCMAKE_CXX_COMPILER=icpx -DCMAKE_C_COMPILER=icx` and
+`-DCMAKE_BUILD_TYPE=RelWithDebInfo` (the configuration the published numbers
+came from), and stops with `compiler_not_icpx=1` if CMake selects anything
+else. Without those flags CMake picks the system `c++` and the first
+translation unit fails at once with
+`c++: error: unrecognized command-line option '-fsycl'`.
 
 The script is intended to source oneAPI, run CMake, build with four jobs by
 default, and run `ldd -r`. Its intended success markers are `build_ok=1` and
@@ -252,6 +272,20 @@ Start diagnosis with the numeric stage message and its raw log. A nonzero
 proof of a source defect. A missing `ggml-sycl` directory is a llama.cpp
 checkout problem. A nonzero CMake/build/`ldd -r` status is a build problem;
 `unresolved_symbols=0` is required before runtime investigation.
+
+`c++: error: unrecognized command-line option '-fsycl'` on the first
+translation unit is not a source defect: CMake selected the system compiler.
+Reconfigure with `-DCMAKE_CXX_COMPILER=icpx -DCMAKE_C_COMPILER=icx` after
+sourcing oneAPI, or let `scripts/build.sh` do it and report
+`compiler_not_icpx=1`.
+
+`fatal error: 'cuda_fp16.h' file not found`,
+`type 'const ggml_half2' (aka 'const __half2') does not provide a subscript
+operator`, or `use of undeclared identifier 'dpct'` means one of the two
+shipped `third_party/ggml/` headers was replaced by the other copy (section 2).
+Restore both; no CUDA toolkit is needed for the converted tree.
+`scripts/build.sh` only forwards `--cuda-include DIR` when a directory is given
+or auto-detected.
 
 At runtime, keep `--expert-cache auto`, the expert profile, kernel PCIe mode,
 and `--pcie-frac 0` exactly as shown. The cache can lend prompt buffers; the

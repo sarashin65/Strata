@@ -11,7 +11,7 @@
 #include <sycl/sycl.hpp>
 #define GGML_COMMON_DECL_SYCL
 #define GGML_COMMON_IMPL_SYCL
-#include "ggml-common.h"
+#include "ggml-common-upstream.h"
 
 #include "ggml-sycl/common.hpp"
 #include "strata/prefill/sycl_mmq_adapter.hpp"
