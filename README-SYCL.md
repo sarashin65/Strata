@@ -76,7 +76,7 @@ availability notes are publication status, not download claims.
 |---|---|---|
 | Model | Qwen3.8-Flash-Next GSQ-RCO IQ3_XXS, two GGUF shards, approximately 75.8 GB total | Download source unconfirmed: `<MODEL-DOWNLOAD-URL>` |
 | Native IQ3 pack | `dense.bin` (approximately 1.5 GB), `index.txt`, `native_experts.txt`, and `tokenizer/` with `vocab.json`, `merges.txt`, `token_type.json`, `tokenizer.json`, and `chat_template.jinja` | Generate from the two model shards with `prepare-data.sh`; the reader's tool version may produce a different layout |
-| MTP head | `dense.bin`, `dense.txt`, `experts.bin` (approximately 708 MB), and `draft_vocab.bin` | BF16 checkpoint source unconfirmed: `<MTP-BF16-CHECKPOINT-URL>` |
+| MTP head | `dense.bin`, `dense.txt`, `experts.bin` (approximately 708 MB), and `draft_vocab.bin` | Determined in section 6: the BF16 checkpoint `Qwen/Qwen3.8-Flash-Next`, taken from the upstream tool's own `REPO` constant |
 | Existing upstream data | `data/expert-profile.bin` and `data/draft_vocab.bin` | Already present in the upstream repository; the reader does not create them. Identity with the measurement inputs is unconfirmed |
 
 The model weights are not distributed here. Other quantizations and models are
@@ -201,13 +201,22 @@ scripts/prepare-data.sh mtp \
   --out "$PWD/mtp"
 ```
 
-The current upstream `mtp_fetch.py` has `inventory`/`fetch` commands and its
-source location is configured in the tool; it does not expose a
-`--checkpoint` switch, so this wrapper does not accept or use that argument.
-The source setting and fetch result must be confirmed before a real fetch. The
-wrapper copies the already-existing upstream `data/draft_vocab.bin` into the
-MTP runtime folder; it does not create the upstream data file. It never
-creates an expert profile.
+The MTP head is not part of the GSQ-RCO GGUF. The upstream `mtp_fetch.py` reads
+the 31 `mtp.*` tensors out of the BF16 checkpoint
+[`Qwen/Qwen3.8-Flash-Next`](https://huggingface.co/Qwen/Qwen3.8-Flash-Next)
+(360 GB in 131 shards) with HTTP range requests; that checkpoint URL is the
+tool's own `REPO` constant, and `fetch` writes one raw file per tensor plus
+`mtp-manifest.json` (dtype, shape, source shard, byte range, sha256), so the
+origin of every tensor is recorded and checkable. It reads nothing but the
+ranges named in the shard headers and never runs a model. The tool exposes
+`inventory`/`fetch` and has no `--checkpoint` switch, so this wrapper does not
+accept or use that argument. On the development machine the fetch produced
+5.2 GB in about ten minutes and `mtp_pack.py --src <fetched> --experts q2_0`
+produced `dense.bin` 116 MB and `experts.bin` 708 MB; the engine then reported
+`draft layer loaded, 789 MiB of VRAM`. Those sizes are measurements from the
+development machine, not acceptance conditions. The wrapper copies the
+already-existing upstream `data/draft_vocab.bin` into the MTP runtime folder;
+it does not create the upstream data file. It never creates an expert profile.
 
 ## 7. Fixed launch
 
