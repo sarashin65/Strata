@@ -204,7 +204,7 @@ scripts/prepare-data.sh mtp \
 The MTP head is not part of the GSQ-RCO GGUF. The upstream `mtp_fetch.py` reads
 the 31 `mtp.*` tensors out of the BF16 checkpoint
 [`Qwen/Qwen3.8-Flash-Next`](https://huggingface.co/Qwen/Qwen3.8-Flash-Next)
-(about 360 GB in 131 shards) with HTTP range requests; that checkpoint URL is the
+(360 GB in 131 shards) with HTTP range requests; that checkpoint URL is the
 tool's own `REPO` constant, and `fetch` writes one raw file per tensor plus
 `mtp-manifest.json` (dtype, shape, source shard, byte range, sha256), so the
 origin of every tensor is recorded and checkable. It reads nothing but the
